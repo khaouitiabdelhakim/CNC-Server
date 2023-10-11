@@ -34,7 +34,6 @@ public class UserDetailsImpl implements UserDetails {
     this.password = password;
     this.authorities = authorities;
   }
-
   public static UserDetailsImpl build(User user) {
     String role = String.valueOf(user.getRole()); // Assuming user.getRole() returns a string like "STUDENT" or "ADMIN"
 

@@ -95,35 +95,22 @@ public class GradeEntryAgentController {
   }
 
   @GetMapping("/students-with-notes")
-  public List<FullStudent> studentsWithNotes() {
+  public List<User> studentsWithNotes() {
     List<User> studentsWithNotes = userRepository.findStudentsWithNotes();
-    List<FullStudent> fullStudents = new ArrayList<>();
+    Collections.shuffle(studentsWithNotes);
 
-    for (User user : studentsWithNotes) {
-      Inscription inscription = inscriptionRepository.findByIdStudent(user.getId());
-      DossierEcrit dossierEcrit = dossierEcritRepository.findByIdInscription(inscription.getId());
+    return studentsWithNotes;
 
-      FullStudent fullStudent = new FullStudent(user, dossierEcrit);
-      fullStudents.add(fullStudent);
-    }
-
-    return fullStudents;
   }
 
   @GetMapping("/students-without-notes")
-  public List<FullStudent> studentsWithoutNotes() {
+  public List<User> studentsWithoutNotes() {
     List<User> studentsWithoutNotes = userRepository.findStudentsWithoutNotes();
-    List<FullStudent> fullStudentsWithoutNotes = new ArrayList<>();
 
-    for (User user : studentsWithoutNotes) {
-      Inscription inscription = inscriptionRepository.findByIdStudent(user.getId());
-      DossierEcrit dossierEcrit = dossierEcritRepository.findByIdInscription(inscription.getId());
+    // Shuffle the list of users
+    Collections.shuffle(studentsWithoutNotes);
 
-      FullStudent fullStudent = new FullStudent(user, dossierEcrit);
-      fullStudentsWithoutNotes.add(fullStudent);
-    }
-
-    return fullStudentsWithoutNotes;
+    return studentsWithoutNotes;
   }
 
 

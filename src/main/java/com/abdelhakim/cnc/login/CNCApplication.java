@@ -1,5 +1,6 @@
 package com.abdelhakim.cnc.login;
 
+import com.abdelhakim.cnc.login.service.CINStorageService;
 import com.abdelhakim.cnc.login.service.FilesStorageService;
 import jakarta.annotation.Resource;
 import org.springframework.boot.CommandLineRunner;
@@ -12,6 +13,9 @@ public class CNCApplication  implements CommandLineRunner {
 	@Resource
 	FilesStorageService storageService;
 
+	@Resource
+	CINStorageService cinStorageService;
+
 	public static void main(String[] args) {
 		SpringApplication.run(CNCApplication.class, args);
 	}
@@ -20,6 +24,7 @@ public class CNCApplication  implements CommandLineRunner {
 	public void run(String... arg) throws Exception {
 //    storageService.deleteAll();
 		storageService.init();
+		cinStorageService.init();
 	}
 
 }

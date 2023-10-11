@@ -1,16 +1,22 @@
 package com.abdelhakim.cnc.login.controllers;
 
 
+import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.abdelhakim.cnc.login.exception.TokenRefreshException;
+import com.abdelhakim.cnc.login.message.ResponseMessage;
 import com.abdelhakim.cnc.login.models.*;
+import com.abdelhakim.cnc.login.payload.request.CompleteStudentRequest;
 import com.abdelhakim.cnc.login.payload.request.TokenRefreshRequest;
 import com.abdelhakim.cnc.login.payload.response.JwtResponse;
 import com.abdelhakim.cnc.login.payload.response.TokenRefreshResponse;
 import com.abdelhakim.cnc.login.repository.*;
 import com.abdelhakim.cnc.login.security.services.RefreshTokenService;
+import com.abdelhakim.cnc.login.service.CINStorageService;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,17 +30,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
 
 import com.abdelhakim.cnc.login.payload.request.LoginRequest;
 import com.abdelhakim.cnc.login.payload.request.SignupRequest;
 import com.abdelhakim.cnc.login.payload.response.MessageResponse;
 import com.abdelhakim.cnc.login.security.jwt.JwtUtils;
 import com.abdelhakim.cnc.login.security.services.UserDetailsImpl;
+import org.springframework.web.multipart.MultipartFile;
 
 //for Angular Client (withCredentials)
 @CrossOrigin(origins = "http://localhost:4200", maxAge = 3600, allowCredentials="true")
@@ -42,6 +46,9 @@ import com.abdelhakim.cnc.login.security.services.UserDetailsImpl;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    @Autowired
+    CINStorageService storageService;
   @Autowired
   AuthenticationManager authenticationManager;
 
@@ -53,6 +60,17 @@ public class AuthController {
 
     @Autowired
     StudentRepository studentRepository;
+
+    @Autowired
+    InscriptionRepository inscriptionRepository;
+
+    @Autowired
+    DossierEcritRepository dossierEcritRepository;
+
+    @Autowired
+    DossierOralRepository dossierOralRepository;
+
+
 
     @Autowired
     FileVerifierRepository fileVerifierRepository;
@@ -110,6 +128,18 @@ public class AuthController {
                 .orElseThrow(() -> new TokenRefreshException(requestRefreshToken,
                         "Refresh token is not in database!"));
     }
+
+
+
+
+
+
+
+
+
+
+
+
     @PostMapping("/sign-up")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
 
@@ -178,6 +208,83 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new MessageResponse("An error occurred during registration."));
         }
     }
+
+
+
+
+
+
+
+
+
+    @Transactional
+    @PostMapping("/inscrire")
+    public ResponseEntity<ResponseMessage> inscrireStudent(
+            @RequestParam("carte") MultipartFile carte,
+            @RequestParam("nom") String nom,
+            @RequestParam("prenom") String prenom,
+            @RequestParam("email") String email,
+            @RequestParam("cin") String cin,
+            @RequestParam("password") String password) {
+
+
+        String carteMessage = "";
+
+        try {
+            String carteFileName = "cin_"+ cin + "." + StringUtils.getFilenameExtension(carte.getOriginalFilename());
+            storageService.saveWithNewName(carte, carteFileName);
+
+            carteMessage = "Uploaded the cover photo successfully: " + carte.getOriginalFilename();
+
+
+            try {
+                if (userRepository.existsByUsername(cin)) {
+                    String errorMessage = "CIN is already taken!";
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage(errorMessage));
+                }
+
+                if (userRepository.existsByEmail(email)) {
+                    String errorMessage = "Email is already in use";
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage(errorMessage));
+                }
+
+                // Create a new user's account
+                User user = new User(cin,
+                        email,
+                        encoder.encode(password));
+
+
+                user.setRole(ERole.valueOf("STUDENT"));
+
+                userRepository.save(user);
+
+
+                Student student = new Student();
+                student.setUser(user);
+                student.setEstProfilValide(false);
+                student.setNom(nom);
+                student.setEmailPersonnel(email);
+                student.setPrenom(prenom);
+                student.setCin(carteFileName);
+
+                // Add logging
+                System.out.println("Before saving student"); // Add this line
+                studentRepository.save(student);
+                System.out.println("After saving student"); // Add this line
+
+                String errorMessage = "User registered successfully!";
+                return ResponseEntity.status(HttpStatus.OK).body(new ResponseMessage(errorMessage));
+
+            } catch (Exception e) {
+                String errorMessage = "Could not register student: " + e.getMessage();
+                return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(new ResponseMessage(errorMessage));
+            }
+        } catch (Exception e) {
+            String errorMessage = "Could not upload one or more files: " + e.getMessage();
+            return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(new ResponseMessage(errorMessage));
+        }
+    }
+
 
 
     @PostMapping("/sign-out")

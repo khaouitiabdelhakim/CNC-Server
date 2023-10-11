@@ -8,11 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Optional;
 
 //for Angular Client (withCredentials)
@@ -38,17 +36,21 @@ public class StudentController {
   DossierOralRepository dossierOralRepository;
 
   @GetMapping("/dashboard")
-  public String studentAccess(Authentication authentication) {
+  public ResponseEntity<CompleteStudent> studentAccess(Authentication authentication) {
     UserDetails userDetails = (UserDetails) authentication.getPrincipal();
     String username = userDetails.getUsername();
-    List<GrantedAuthority> authorities = (List<GrantedAuthority>) userDetails.getAuthorities();
+    Optional<User> user = userRepository.findByUsername(username);
 
-    // Log username and authorities for debugging
-    System.out.println("Username: " + username);
-    System.out.println("Authorities: " + authorities);
+    if (user.isPresent()) {
 
-    // Your admin-specific logic here
-    return "Admin Board.";
+      Optional<Student> student = studentRepository.findByIdUser(user.get().getId());
+      if (student.isPresent()) {
+
+        CompleteStudent completeStudent = new CompleteStudent(student.get(), user.get());
+        return ResponseEntity.ok(completeStudent);
+      }
+    }
+    return ResponseEntity.notFound().build();
   }
 
   @GetMapping("/profile-status")

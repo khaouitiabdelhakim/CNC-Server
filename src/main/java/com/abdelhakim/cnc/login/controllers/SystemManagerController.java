@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/system-manager")
 public class SystemManagerController {
 
+
+
   @GetMapping("/dashboard")
   public String adminAccess(Authentication authentication) {
     UserDetails userDetails = (UserDetails) authentication.getPrincipal();

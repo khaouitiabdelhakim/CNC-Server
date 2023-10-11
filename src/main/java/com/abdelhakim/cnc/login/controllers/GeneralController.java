@@ -1,5 +1,6 @@
 package com.abdelhakim.cnc.login.controllers;
 
+import com.abdelhakim.cnc.login.service.CINStorageService;
 import com.abdelhakim.cnc.login.service.FilesStorageService;
 import com.abdelhakim.cnc.login.models.Actualite;
 import com.abdelhakim.cnc.login.models.Centre;
@@ -41,6 +42,9 @@ public class GeneralController {
   @Autowired
   FilesStorageService storageService;
 
+  @Autowired
+  CINStorageService cinStorageService;
+
 
   @Autowired
   private ActualiteRepository actualiteRepository;
@@ -49,6 +53,14 @@ public class GeneralController {
   @ResponseBody
   public ResponseEntity<Resource> getFile(@PathVariable String filename) {
     Resource file = storageService.load(filename);
+    return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"").body(file);
+  }
+
+  @GetMapping("/cin/{filename:.+}")
+  @ResponseBody
+  public ResponseEntity<Resource> getCINFile(@PathVariable String filename) {
+    Resource file = cinStorageService.load(filename);
     return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"").body(file);
   }

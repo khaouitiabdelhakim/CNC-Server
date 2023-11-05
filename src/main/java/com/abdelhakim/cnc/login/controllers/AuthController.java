@@ -154,6 +154,8 @@ public class AuthController {
 
             // Create a new user's account
             User user = new User(signUpRequest.getCin(),
+                    signUpRequest.getNom(),
+                    signUpRequest.getPrenom(),
                     signUpRequest.getEmail(),
                     encoder.encode(signUpRequest.getPassword()));
 
@@ -250,6 +252,8 @@ public class AuthController {
 
                 // Create a new user's account
                 User user = new User(cin,
+                        nom,
+                        prenom,
                         email,
                         encoder.encode(password));
 

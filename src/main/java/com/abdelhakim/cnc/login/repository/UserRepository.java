@@ -6,6 +6,7 @@ import java.util.Optional;
 import com.abdelhakim.cnc.login.models.ERole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.abdelhakim.cnc.login.models.User;
@@ -22,10 +23,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
   Optional<User> findUserById(Long id);
 
-  @Query("SELECT DISTINCT u FROM User u JOIN Note n ON u.id = n.idEtudiant")
-  List<User> findStudentsWithNotes();
+  @Query("SELECT u FROM User u WHERE u.id IN (SELECT DISTINCT n.idEtudiant FROM Note n WHERE n.idAgent = :agentId)")
+  List<User> findStudentsWithNotes(@Param("agentId") Long agentId);
+
 
   // Custom query to find students without notes
-  @Query("SELECT u FROM User u WHERE u.role = 'STUDENT' AND u.id NOT IN (SELECT DISTINCT n.idEtudiant FROM Note n)")
-  List<User> findStudentsWithoutNotes();
+  @Query("SELECT u FROM User u WHERE u.id NOT IN (SELECT DISTINCT n.idEtudiant FROM Note n WHERE n.idAgent = :agentId)")
+  List<User> findStudentsWithoutNotes(@Param("agentId") Long agentId);
+
+  @Query("SELECT u FROM User u WHERE u.id IN (SELECT DISTINCT n.idEtudiant FROM Note n WHERE  n.note = -1)")
+  List<User> findStudentsWithFalseNotes(@Param("agentId") Long agentId);
+
+
 }

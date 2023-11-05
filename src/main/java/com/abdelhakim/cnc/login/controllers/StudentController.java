@@ -1,5 +1,6 @@
 package com.abdelhakim.cnc.login.controllers;
 
+import com.abdelhakim.cnc.login.dashboard.StudentDashboard;
 import com.abdelhakim.cnc.login.models.*;
 import com.abdelhakim.cnc.login.payload.request.*;
 import com.abdelhakim.cnc.login.repository.*;
@@ -36,7 +37,7 @@ public class StudentController {
   DossierOralRepository dossierOralRepository;
 
   @GetMapping("/dashboard")
-  public ResponseEntity<CompleteStudent> studentAccess(Authentication authentication) {
+  public ResponseEntity<StudentDashboard> studentAccess(Authentication authentication) {
     UserDetails userDetails = (UserDetails) authentication.getPrincipal();
     String username = userDetails.getUsername();
     Optional<User> user = userRepository.findByUsername(username);
@@ -46,12 +47,36 @@ public class StudentController {
       Optional<Student> student = studentRepository.findByIdUser(user.get().getId());
       if (student.isPresent()) {
 
-        CompleteStudent completeStudent = new CompleteStudent(student.get(), user.get());
-        return ResponseEntity.ok(completeStudent);
+        StudentDashboard studentDashboard = new StudentDashboard(student.get(), user.get());
+
+        Inscription inscription = inscriptionRepository.findByIdStudent(user.get().getId());
+        if (inscription != null) {
+          Long inscriptionId = inscription.getId();
+
+          DossierEcrit dossierEcrit = dossierEcritRepository.findByIdInscription(inscriptionId);
+
+          if (dossierEcrit != null) {
+            if (dossierEcrit.getNationalite() == null) {
+              studentDashboard.setCncState(0);
+            } else if (dossierEcrit.getSituation() == null) {
+              studentDashboard.setCncState(20);
+            }else if (dossierEcrit.getCentreCpge1cpge() == null) {
+              studentDashboard.setCncState(40);
+            }else if (dossierEcrit.getTitreTIPE() == null) {
+              studentDashboard.setCncState(60);
+            } else {
+              studentDashboard.setCncState(80);
+            }
+          }
+          studentDashboard.setEstCncValide(inscription.getEstDossierEcritValide());
+        }
+        return ResponseEntity.ok(studentDashboard);
       }
     }
     return ResponseEntity.notFound().build();
   }
+
+
 
   @GetMapping("/profile-status")
   public Boolean profileStatus(Authentication authentication) {

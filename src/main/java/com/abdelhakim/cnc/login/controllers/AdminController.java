@@ -6,6 +6,7 @@ import com.abdelhakim.cnc.login.payload.request.CompleteStudentRequest;
 import com.abdelhakim.cnc.login.repository.*;
 import com.abdelhakim.cnc.login.security.jwt.JwtUtils;
 import com.abdelhakim.cnc.login.service.CINStorageService;
+import com.abdelhakim.cnc.login.service.ClassementService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -52,11 +53,40 @@ public class AdminController {
     @Autowired
     JwtUtils jwtUtils;
 
-  @GetMapping("/dashboard")
+    private final ClassementService classementService;
+
+    @Autowired
+    public AdminController(ClassementService classementService) {
+        this.classementService = classementService;
+    }
+
+
+    @GetMapping("/dashboard")
   public UserDetails adminAccess(Authentication authentication) {
     UserDetails userDetails = (UserDetails) authentication.getPrincipal();
     return userDetails;
   }
+
+    @GetMapping("/classement")
+    public List<Classement> getStudentsOrderedBySum(@RequestParam(name = "ascending", defaultValue = "false") boolean ascending) {
+        List<Classement> students =  classementService.calculateSumForStudentsOrderBySum(ascending);
+        for (Classement classement: students) {
+            DossierEcrit dossierEcrit = getAlldetailsAboutStudent(classement.getId());
+            classement.setNom(dossierEcrit.getNom());
+            classement.setPrenom(dossierEcrit.getPrenom());
+            classement.setEmail(dossierEcrit.getEmail());
+            classement.setCne(dossierEcrit.getCne());
+        }
+
+        return students;
+    }
+
+    public DossierEcrit getAlldetailsAboutStudent(Long id) {
+        Optional<User> user = userRepository.findById(id);
+        Inscription inscription = inscriptionRepository.findByIdStudent(user.get().getId());
+        DossierEcrit dossierEcrit = dossierEcritRepository.findByIdInscription(inscription.getId());
+        return dossierEcrit;
+    }
 
     @GetMapping("/profile")
     public UserDetails adminProfile(Authentication authentication) {
@@ -127,6 +157,8 @@ public class AdminController {
 
             // Create a new user's account
             User user = new User(request.getCin(),
+                    request.getNom(),
+                    request.getPrenom(),
                     request.getEmail(),
                     encoder.encode(request.getPassword()));
 
@@ -250,105 +282,6 @@ public class AdminController {
 
 
 
-    @PostMapping("/validate/{id}")
-    public ResponseEntity<User> validateProfileStudent(@PathVariable Long id) {
-        // Check if the user with the given ID exists and has the role "STUDENT"
-        Optional<Student> studentOptional = studentRepository.findByIdUser(id);
-
-        if (studentOptional.isPresent()) {
-            Student student = studentOptional.get();
-
-            // Update the est_profil_valide property to true for the student
-            student.setEstProfilValide(true);
-
-            // Save the updated user (student)
-            studentRepository.save(student);
-
-            // Create an Inscription with the given student ID
-            Inscription inscription = new Inscription();
-            inscription.setIdStudent(id);
-            inscription.setEstDossierEcritValide(false);
-            inscription.setEstDossierOralValide(false);
-
-            // Save the Inscription to associate it with the generated ID
-            Inscription savedInscription = inscriptionRepository.save(inscription);
-
-            // Create DossierOral and associate them with the Inscription
-            DossierOral dossierOral = new DossierOral();
-            dossierOral.setIdInscription(savedInscription.getId());
-            dossierOralRepository.save(dossierOral);
-
-            // Create DossierEcrit and associate them with the Inscription
-            DossierEcrit dossierEcrit = new DossierEcrit();
-            dossierEcrit.setIdInscription(savedInscription.getId());
-            dossierEcrit.setNom(student.getNom());
-            dossierEcrit.setPrenom(student.getPrenom());
-            dossierEcrit.setCin(student.getCin());
-            dossierEcrit.setEmail(student.getEmailPersonnel());
-            dossierEcritRepository.save(dossierEcrit);
-
-            // Return a response indicating success or failure
-            return ResponseEntity.ok().build();
-        } else {
-            // Handle the case where the user with the given ID is not found or is not a student
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-
-
-
-    @PostMapping("/validate")
-    public ResponseEntity<User> validateProfileStudent(@RequestParam String username) {
-        // Find the user by the provided username
-        Optional<User> userOptional = userRepository.findByUsername(username);
-
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            Long id = user.getId();
-
-            // Check if the user with the given ID exists and has the role "STUDENT"
-            Optional<Student> studentOptional = studentRepository.findByIdUser(id);
-
-            if (studentOptional.isPresent()) {
-                Student student = studentOptional.get();
-
-                // Update the est_profil_valide property to true for the student
-                student.setEstProfilValide(true);
-
-                // Save the updated user (student)
-                studentRepository.save(student);
-
-                // Create an Inscription with the given student ID
-                Inscription inscription = new Inscription();
-                inscription.setIdStudent(id);
-                inscription.setEstDossierEcritValide(false);
-                inscription.setEstDossierOralValide(false);
-
-                // Save the Inscription to associate it with the generated ID
-                Inscription savedInscription = inscriptionRepository.save(inscription);
-
-                // Create DossierOral and associate them with the Inscription
-                DossierOral dossierOral = new DossierOral();
-                dossierOral.setIdInscription(savedInscription.getId());
-                dossierOralRepository.save(dossierOral);
-
-                // Create DossierEcrit and associate them with the Inscription
-                DossierEcrit dossierEcrit = new DossierEcrit();
-                dossierEcrit.setIdInscription(savedInscription.getId());
-                dossierEcritRepository.save(dossierEcrit);
-
-                // Return a response indicating success or failure
-                return ResponseEntity.ok().build();
-            } else {
-                // Handle the case where the user with the given ID is not found or is not a student
-                return ResponseEntity.notFound().build();
-            }
-        } else {
-            // Handle the case where the user with the given username is not found or is not a student
-            return ResponseEntity.notFound().build();
-        }
-    }
 
 
 }

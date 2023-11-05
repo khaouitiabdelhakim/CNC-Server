@@ -42,29 +42,11 @@ public class GradeEntryAgentController {
     UserDetails userDetails = (UserDetails) authentication.getPrincipal();
     String username = userDetails.getUsername();
     List<GrantedAuthority> authorities = (List<GrantedAuthority>) userDetails.getAuthorities();
-    return studentCounts();
+    return studentCounts(authentication);
   }
 
-  private final ClassementService classementService;
 
-  @Autowired
-  public GradeEntryAgentController(ClassementService classementService) {
-    this.classementService = classementService;
-  }
 
-  @GetMapping("/classement")
-  public List<Classement> getStudentsOrderedBySum(@RequestParam(name = "ascending", defaultValue = "false") boolean ascending) {
-    List<Classement> students =  classementService.calculateSumForStudentsOrderBySum(ascending);
-    for (Classement classement: students) {
-      DossierEcrit dossierEcrit = getAlldetailsAboutStudent(classement.getId());
-      classement.setNom(dossierEcrit.getNom());
-      classement.setPrenom(dossierEcrit.getPrenom());
-      classement.setEmail(dossierEcrit.getEmail());
-      classement.setCne(dossierEcrit.getCne());
-    }
-
-    return students;
-  }
 
   @GetMapping("/students/{id}")
   public ResponseEntity<User> getStudent(@PathVariable Long id) {
@@ -95,8 +77,38 @@ public class GradeEntryAgentController {
   }
 
   @GetMapping("/students-with-notes")
-  public List<User> studentsWithNotes() {
-    List<User> studentsWithNotes = userRepository.findStudentsWithNotes();
+  public List<User> studentsWithNotes(Authentication authentication) {
+    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    String gradeEntryAgentUsername = userDetails.getUsername();
+    Optional<User> user = userRepository.findByUsername(gradeEntryAgentUsername);
+
+    if (user.isEmpty()) {
+      List<User> students = null;
+      return students;
+    }
+
+    Long gradeEntryAgentId = user.get().getId();
+    List<User> studentsWithNotes = userRepository.findStudentsWithNotes(gradeEntryAgentId);
+    Collections.shuffle(studentsWithNotes);
+
+    return studentsWithNotes;
+
+  }
+
+
+  @GetMapping("/students-with-false-notes")
+  public List<User> studentsWithFalseNotes(Authentication authentication) {
+    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    String gradeEntryAgentUsername = userDetails.getUsername();
+    Optional<User> user = userRepository.findByUsername(gradeEntryAgentUsername);
+
+    if (user.isEmpty()) {
+      List<User> students = null;
+      return students;
+    }
+
+    Long gradeEntryAgentId = user.get().getId();
+    List<User> studentsWithNotes = userRepository.findStudentsWithFalseNotes(gradeEntryAgentId);
     Collections.shuffle(studentsWithNotes);
 
     return studentsWithNotes;
@@ -104,8 +116,18 @@ public class GradeEntryAgentController {
   }
 
   @GetMapping("/students-without-notes")
-  public List<User> studentsWithoutNotes() {
-    List<User> studentsWithoutNotes = userRepository.findStudentsWithoutNotes();
+  public List<User> studentsWithoutNotes(Authentication authentication) {
+    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    String gradeEntryAgentUsername = userDetails.getUsername();
+    Optional<User> user = userRepository.findByUsername(gradeEntryAgentUsername);
+
+    if (user.isEmpty()) {
+      List<User> students = null;
+      return students;
+    }
+
+    Long gradeEntryAgentId = user.get().getId();
+    List<User> studentsWithoutNotes = userRepository.findStudentsWithoutNotes(gradeEntryAgentId);
 
     // Shuffle the list of users
     Collections.shuffle(studentsWithoutNotes);
@@ -130,17 +152,17 @@ public class GradeEntryAgentController {
           @RequestBody Map<String, Float> notesData,
           Authentication authentication
   ) {
+    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    String gradeEntryAgentUsername = userDetails.getUsername();
+    Optional<User> user = userRepository.findByUsername(gradeEntryAgentUsername);
+
+    if (user.isEmpty()) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("message", "User not found"));
+    }
+
+    Long gradeEntryAgentId = user.get().getId();
+
     try {
-      UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-      String gradeEntryAgentUsername = userDetails.getUsername();
-      Optional<User> user = userRepository.findByUsername(gradeEntryAgentUsername);
-
-      if (user.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("message", "User not found"));
-      }
-
-      Long gradeEntryAgentId = user.get().getId();
-
       for (Map.Entry<String, Float> entry : notesData.entrySet()) {
         String subject = entry.getKey();
         Float mark = entry.getValue();
@@ -151,15 +173,24 @@ public class GradeEntryAgentController {
           Matiere matiere = matiereOptional.get();
 
           // Check if a note already exists for the same student, subject, and agent
-          Optional<Note> existingNote = noteRepository.findByIdEtudiantAndIdMatiereAndIdAgent(id, matiere.getId(), gradeEntryAgentId);
+          Optional<Note> existingNote = noteRepository.findByIdEtudiantAndIdMatiere(id, matiere.getId());
 
           if (existingNote.isPresent()) {
-            // Update the existing note
+
             Note noteToUpdate = existingNote.get();
-            noteToUpdate.setNote(mark);
+            Float falseMark = (float) -1;
+            if (falseMark.equals(noteToUpdate.getNote())) {
+              noteToUpdate.setNote(mark);
+            } else {
+              if (noteToUpdate.getIdAgent() == gradeEntryAgentId) {
+                noteToUpdate.setNote(mark);
+              } else if (!mark.equals(noteToUpdate.getNote())) {
+                noteToUpdate.setNote(-1);
+              }
+            }
+
             noteRepository.save(noteToUpdate);
           } else {
-            // Create a new note
             Note newNote = new Note();
             newNote.setIdEtudiant(id);
             newNote.setIdMatiere(matiere.getId());
@@ -179,6 +210,7 @@ public class GradeEntryAgentController {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.singletonMap("error", "Error processing request: " + e.getMessage()));
     }
   }
+
 
 
   @PostMapping("/notes-from-cin/{cin}")
@@ -277,7 +309,12 @@ public class GradeEntryAgentController {
 
 
   //general methods
-  public Map<String, Integer> studentCounts() {
+  public Map<String, Integer> studentCounts(Authentication authentication) {
+    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    String gradeEntryAgentUsername = userDetails.getUsername();
+    Optional<User> user = userRepository.findByUsername(gradeEntryAgentUsername);
+
+    Long gradeEntryAgentId = user.get().getId();
     Map<String, Integer> counts = new HashMap<>();
 
     // Get the total number of students
@@ -286,7 +323,7 @@ public class GradeEntryAgentController {
     counts.put("totalStudents", totalStudentCount);
 
     // Get the number of students with notes
-    List<User> studentsWithNotes = userRepository.findStudentsWithNotes();
+    List<User> studentsWithNotes = userRepository.findStudentsWithNotes(gradeEntryAgentId);
     int studentsWithNotesCount = studentsWithNotes.size();
     counts.put("studentsWithNotes", studentsWithNotesCount);
 

@@ -20,4 +20,6 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
 
     @Query("SELECT DISTINCT n.idEtudiant FROM Note n")
     List<Long> findDistinctIdEtudiant();
+
+    Optional<Note> findByIdEtudiantAndIdMatiere(Long id, Long id1);
 }

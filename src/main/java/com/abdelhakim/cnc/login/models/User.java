@@ -23,6 +23,31 @@ public class User {
 
   @NotBlank
   @Size(max = 50)
+  private String nom;
+
+
+  @NotBlank
+  @Size(max = 50)
+  private String prenom;
+
+  public String getNom() {
+    return nom;
+  }
+
+  public void setNom(String nom) {
+    this.nom = nom;
+  }
+
+  public String getPrenom() {
+    return prenom;
+  }
+
+  public void setPrenom(String prenom) {
+    this.prenom = prenom;
+  }
+
+  @NotBlank
+  @Size(max = 50)
   @Email
   private String email;
 
@@ -39,8 +64,12 @@ public class User {
   public User() {
   }
 
-  public User(String username, String email, String password) {
+
+
+  public User(String username, String nom, String prenom, String email, String password) {
     this.username = username;
+    this.nom = nom;
+    this.prenom = prenom;
     this.email = email;
     this.password = password;
   }
